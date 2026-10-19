@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>消消乐 · 拖动交换 · 动画 · 自定义图片/音效</title>
+    <title>消消乐</title>
     <style>
         * {
             margin: 0;
@@ -330,7 +330,7 @@
 </head>
 <body>
 
-    <h1 class="game-title">消消乐</h1>
+    <h1 class="game-title">明制作*消消乐</h1>
 
     <div class="score-panel">得分: <span id="scoreDisplay">0</span></div>
 
@@ -345,13 +345,10 @@
         <button class="btn" id="resetBtn">🔄 重置</button>
     </div>
 
-    <div class="bg-hint">✨ 拖动交换 · 无效弹回 · 支持自定义图片与音效 ✨</div>
+    <div class="bg-hint">✨ 拖动交换 ✨</div>
 
     <script>
         (function() {
-            // ==================== 自定义配置区 ====================
-            // 1. 自定义图片：为每个符号指定图片 URL。null 表示使用内置符号。
-            //    例如：'🍎': 'https://example.com/apple.png'
             const SYMBOL_IMAGES = {
                 '🍎': null,
                 '🍊': null,
@@ -364,10 +361,9 @@
                 '🥝': null,
             };
 
-            // 2. 音效：可直接填入音频 URL，留空则静默。
-            //    注意：部分浏览器需要用户交互后才能播放音频。
-            const SFX_MATCH_URL = '';      // 消除音效 URL
-            const SFX_INVALID_URL = '';    // 无效交换音效 URL
+
+            const SFX_MATCH_URL = 'haobang.mp3';      
+            const SFX_INVALID_URL = 'wuxiao.mp3';    
 
             // 创建音效对象（内部使用）
             function createAudio(url) {
