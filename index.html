@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>消消乐 · 拖动交换 · 动画 · 自定义图片/音效</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+        }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #0b0f1a;
+            font-family: 'Segoe UI', 'Poppins', system-ui, sans-serif;
+            padding: 12px;
+            background-image: url('bg.png');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            position: relative;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            overflow: hidden; /* 防止框体拖动时出现滚动条抖动 */
+        }
+
+        /* 标题 */
+        .game-title {
+            font-size: 2.4rem;
+            font-weight: 800;
+            letter-spacing: 6px;
+            text-transform: uppercase;
+            color: #fff;
+            text-shadow: 0 0 8px #9cf, 0 0 20px #6af, 0 0 40px #3af, 0 0 80px #1a8cff;
+            margin-bottom: 20px;
+            text-align: center;
+            filter: drop-shadow(0 0 6px rgba(100, 180, 255, 0.8));
+            position: relative;
+            z-index: 1;
+            pointer-events: none;
+            flex-shrink: 0;
+        }
+
+        /* 得分显示 */
+        .score-panel {
+            position: relative;
+            z-index: 1;
+            pointer-events: none;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #fff;
+            text-shadow: 0 0 12px #3af, 0 0 30px #1a8cff;
+            margin-bottom: 8px;
+            letter-spacing: 2px;
+            background: rgba(0, 20, 40, 0.6);
+            backdrop-filter: blur(4px);
+            padding: 6px 24px;
+            border-radius: 40px;
+            border: 1px solid #3af;
+            box-shadow: 0 0 20px #1a8cff;
+            flex-shrink: 0;
+        }
+
+        /* 框体 */
+        .game-board-wrapper {
+            position: relative;
+            width: 480px;
+            height: 680px;
+            resize: both;
+            overflow: auto;
+            min-width: 280px;
+            min-height: 340px;
+            max-width: 98vw;
+            max-height: 90vh;
+            border: 2px solid rgba(120, 200, 255, 0.7);
+            border-radius: 28px;
+            background: rgba(10, 20, 30, 0.65);
+            backdrop-filter: blur(4px);
+            box-shadow: 0 0 12px #3af, 0 0 28px #1a8cff, inset 0 0 12px rgba(80, 180, 255, 0.5);
+            padding: 12px;
+            z-index: 10;
+            margin: 10px 0;
+            flex-shrink: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .game-board-scroll {
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            border-radius: 20px;
+            scrollbar-width: thin;
+            scrollbar-color: #3af #0a1420;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .game-board-scroll::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .game-board-scroll::-webkit-scrollbar-track {
+            background: #0a1420;
+            border-radius: 8px;
+        }
+        .game-board-scroll::-webkit-scrollbar-thumb {
+            background: #3af;
+            border-radius: 8px;
+            box-shadow: 0 0 10px #3af;
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(9, 1fr);
+            gap: 6px;
+            padding: 8px;
+            min-width: 260px;
+            width: 100%;
+        }
+
+        /* 格子 */
+        .cell {
+            aspect-ratio: 1 / 1;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: #fff;
+            background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.2), rgba(0, 0, 0, 0.4));
+            border: 1.5px solid rgba(255, 255, 255, 0.4);
+            box-shadow: 0 0 8px rgba(100, 200, 255, 0.7), inset 0 0 10px rgba(255, 255, 255, 0.3);
+            cursor: grab;
+            transition: transform 0.15s ease, box-shadow 0.1s, filter 0.1s, opacity 0.2s;
+            will-change: transform, box-shadow;
+            overflow: hidden;
+            touch-action: none;
+            position: relative;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+            outline: none;
+        }
+
+        .cell:active {
+            cursor: grabbing;
+        }
+
+        .cell:hover {
+            filter: brightness(1.25);
+            box-shadow: 0 0 18px #9cf, 0 0 30px #3af, inset 0 0 15px #fff;
+        }
+
+        .cell.selected {
+            box-shadow: 0 0 25px #fff, 0 0 45px #0ff, inset 0 0 20px #fff;
+            border-color: #fff;
+            filter: brightness(1.5);
+            transform: scale(1.02);
+        }
+
+        .cell.dragging {
+            cursor: grabbing;
+            z-index: 100;
+            opacity: 0.85;
+            transform: scale(1.08) !important;
+            box-shadow: 0 0 30px #fff, 0 0 60px #3af, inset 0 0 30px #fff !important;
+            transition: transform 0.05s, box-shadow 0.05s !important;
+            pointer-events: none;
+        }
+
+        .cell.removing {
+            animation: removePop 0.25s ease-in forwards;
+            pointer-events: none;
+        }
+
+        @keyframes removePop {
+            0% { transform: scale(1); opacity: 1; filter: brightness(1.5); }
+            50% { transform: scale(1.25); opacity: 0.8; filter: brightness(2); }
+            100% { transform: scale(0); opacity: 0; filter: brightness(3); }
+        }
+
+        .cell.falling {
+            animation: fallIn 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        @keyframes fallIn {
+            0% { transform: translateY(-30px); opacity: 0.5; }
+            100% { transform: translateY(0); opacity: 1; }
+        }
+
+        /* 格子内图片 */
+        .cell .cell-img {
+            width: 80%;
+            height: 80%;
+            object-fit: contain;
+            display: block;
+            pointer-events: none;
+            filter: drop-shadow(0 0 6px rgba(255,255,255,0.6));
+        }
+
+        .cell .cell-symbol {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            font-size: 1.6rem;
+            font-weight: 700;
+            pointer-events: none;
+        }
+
+        /* 拖动把手 */
+        .drag-handle {
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 70px;
+            height: 20px;
+            background: rgba(80, 170, 255, 0.6);
+            border-radius: 30px;
+            box-shadow: 0 0 15px #3af;
+            cursor: grab;
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 12px;
+            letter-spacing: 2px;
+            text-shadow: 0 0 6px #00a6ff;
+            border: 1px solid #afdfff;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .drag-handle:active {
+            cursor: grabbing;
+            background: #3af;
+        }
+
+        .drag-handle::before {
+            content: "⋮⋮";
+            font-size: 14px;
+            line-height: 1;
+            color: #e0f0ff;
+            text-shadow: 0 0 8px #00c8ff;
+        }
+
+        .toolbar {
+            margin-top: 16px;
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+            position: relative;
+            z-index: 1;
+            pointer-events: auto;
+            flex-shrink: 0;
+        }
+
+        .btn {
+            background: rgba(20, 40, 60, 0.8);
+            backdrop-filter: blur(8px);
+            border: 1.5px solid #3af;
+            color: #e0f0ff;
+            padding: 8px 22px;
+            border-radius: 40px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            box-shadow: 0 0 15px #1a8cff, inset 0 0 8px rgba(0, 170, 255, 0.5);
+            cursor: pointer;
+            transition: box-shadow 0.15s, transform 0.1s, background 0.2s;
+            font-size: 1rem;
+            text-shadow: 0 0 6px #00a6ff;
+            -webkit-tap-highlight-color: transparent;
+            outline: none;
+        }
+
+        .btn:hover {
+            box-shadow: 0 0 25px #3af, 0 0 45px #3af, inset 0 0 15px #9cf;
+            background: rgba(30, 70, 110, 0.9);
+            transform: scale(1.02);
+        }
+
+        .btn:active {
+            transform: scale(0.96);
+        }
+
+        .bg-hint {
+            color: #8ab;
+            font-size: 0.85rem;
+            margin-top: 10px;
+            text-shadow: 0 0 8px #2af;
+            text-align: center;
+            opacity: 0.8;
+            letter-spacing: 1px;
+            position: relative;
+            z-index: 1;
+            pointer-events: none;
+            flex-shrink: 0;
+        }
+
+        @media (max-width: 600px) {
+            .game-title { font-size: 1.8rem; letter-spacing: 4px; }
+            .cell { font-size: 1.2rem; border-radius: 8px; }
+            .grid-container { gap: 4px; padding: 4px; }
+            .drag-handle { width: 60px; height: 16px; top: -10px; }
+            .btn { padding: 6px 16px; font-size: 0.9rem; }
+            .game-board-wrapper { width: 90vw; height: 70vh; max-width: 480px; max-height: 680px; }
+            .score-panel { font-size: 1.2rem; padding: 4px 18px; }
+        }
+
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
+    </style>
+</head>
+<body>
+
+    <h1 class="game-title">消消乐</h1>
+
+    <div class="score-panel">得分: <span id="scoreDisplay">0</span></div>
+
+    <div class="game-board-wrapper" id="boardWrapper">
+        <div class="drag-handle" id="dragHandle"></div>
+        <div class="game-board-scroll">
+            <div class="grid-container" id="gridContainer"></div>
+        </div>
+    </div>
+
+    <div class="toolbar">
+        <button class="btn" id="resetBtn">🔄 重置</button>
+    </div>
+
+    <div class="bg-hint">✨ 拖动交换 · 无效弹回 · 支持自定义图片与音效 ✨</div>
+
+    <script>
+        (function() {
+            // ==================== 自定义配置区 ====================
+            // 1. 自定义图片：为每个符号指定图片 URL。null 表示使用内置符号。
+            //    例如：'🍎': 'https://example.com/apple.png'
+            const SYMBOL_IMAGES = {
+                '🍎': null,
+                '🍊': null,
+                '🍇': null,
+                '🍓': null,
+                '🍒': null,
+                '🍋': null,
+                '🍉': null,
+                '🍑': null,
+                '🥝': null,
+            };
+
+            // 2. 音效：可直接填入音频 URL，留空则静默。
+            //    注意：部分浏览器需要用户交互后才能播放音频。
+            const SFX_MATCH_URL = '';      // 消除音效 URL
+            const SFX_INVALID_URL = '';    // 无效交换音效 URL
+
+            // 创建音效对象（内部使用）
+            function createAudio(url) {
+                if (!url) return { play: () => {} };
+                const audio = new Audio(url);
+                audio.volume = 0.5;
+                audio.preload = 'auto';
+                return audio;
+            }
+            const SFX_MATCH = createAudio(SFX_MATCH_URL);
+            const SFX_INVALID = createAudio(SFX_INVALID_URL);
+
+            function playSound(audio) {
+                if (!audio) return;
+                try {
+                    audio.currentTime = 0;
+                    const p = audio.play();
+                    if (p !== undefined) p.catch(() => {});
+                } catch (e) { /* 忽略 */ }
+            }
+
+            // ==================== 游戏配置 ====================
+            const ROWS = 10;
+            const COLS = 9;
+            const COLORS = [
+                '#FF6B8B', '#4ECDC4', '#FFD166', '#6C5B7B', '#FF8C42',
+                '#3A86FF', '#AA6DDE', '#20B2AA', '#F45B69'
+            ];
+            const SYMBOLS = ['🍎', '🍊', '🍇', '🍓', '🍒', '🍋', '🍉', '🍑', '🥝'];
+
+            // ==================== 全局状态 ====================
+            let grid = [];            // 二维数组存储符号索引
+            let score = 0;
+            let isProcessing = false;
+
+            // 点击选中
+            let selectedCell = null;  // { row, col, element }
+
+            // 拖动状态
+            let dragStartCell = null; // { row, col, element }
+            let dragElement = null;   // 实际拖动的元素
+            let dragStartX = 0, dragStartY = 0;
+            let isDragging = false;
+            let dragCandidate = false;
+            const DRAG_THRESHOLD = 8;
+
+            // DOM
+            const gridContainer = document.getElementById('gridContainer');
+            const boardWrapper = document.getElementById('boardWrapper');
+            const resetBtn = document.getElementById('resetBtn');
+            const dragHandle = document.getElementById('dragHandle');
+            const scoreDisplay = document.getElementById('scoreDisplay');
+
+            // ==================== 工具函数 ====================
+            function updateScoreUI() {
+                scoreDisplay.textContent = score;
+            }
+
+            function getCellElement(row, col) {
+                return gridContainer.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
+            }
+
+            function isAdjacent(r1, c1, r2, c2) {
+                const dr = Math.abs(r1 - r2);
+                const dc = Math.abs(c1 - c2);
+                return (dr === 1 && dc === 0) || (dr === 0 && dc === 1);
+            }
+
+            function clearSelection() {
+                if (selectedCell && selectedCell.element) {
+                    selectedCell.element.classList.remove('selected');
+                }
+                selectedCell = null;
+            }
+
+            function setSelected(row, col, element) {
+                clearSelection();
+                selectedCell = { row, col, element };
+                element.classList.add('selected');
+            }
+
+            // ==================== 渲染 ====================
+            function renderCellContent(cell, symbolIndex) {
+                const sym = SYMBOLS[symbolIndex % SYMBOLS.length];
+                const imgUrl = SYMBOL_IMAGES[sym];
+                cell.innerHTML = '';
+
+                if (imgUrl) {
+                    const img = document.createElement('img');
+                    img.className = 'cell-img';
+                    img.src = imgUrl;
+                    img.alt = sym;
+                    img.draggable = false;
+                    cell.appendChild(img);
+                    cell.style.background = 'transparent';
+                    cell.style.boxShadow = '0 0 12px rgba(100,200,255,0.7), inset 0 0 10px rgba(255,255,255,0.2)';
+                } else {
+                    const span = document.createElement('span');
+                    span.className = 'cell-symbol';
+                    span.textContent = sym;
+                    span.style.color = '#fff';
+                    span.style.textShadow = `0 0 12px ${COLORS[symbolIndex % COLORS.length]}, 0 0 25px ${COLORS[symbolIndex % COLORS.length]}`;
+                    cell.appendChild(span);
+                    cell.style.background = `radial-gradient(circle at 30% 30%, ${COLORS[symbolIndex % COLORS.length]}dd, ${COLORS[symbolIndex % COLORS.length]}99)`;
+                    cell.style.boxShadow = '0 0 8px rgba(100,200,255,0.7), inset 0 0 10px rgba(255,255,255,0.3)';
+                }
+            }
+
+            function renderGrid() {
+                gridContainer.innerHTML = '';
+                for (let r = 0; r < ROWS; r++) {
+                    for (let c = 0; c < COLS; c++) {
+                        const cell = document.createElement('div');
+                        cell.className = 'cell';
+                        const val = grid[r][c];
+                        cell.dataset.row = r;
+                        cell.dataset.col = c;
+                        cell.dataset.value = val;
+                        renderCellContent(cell, val);
+                        attachCellEvents(cell);
+                        gridContainer.appendChild(cell);
+                    }
+                }
+            }
+
+            function initGrid() {
+                grid = [];
+                for (let r = 0; r < ROWS; r++) {
+                    const row = [];
+                    for (let c = 0; c < COLS; c++) {
+                        row.push(Math.floor(Math.random() * SYMBOLS.length));
+                    }
+                    grid.push(row);
+                }
+                score = 0;
+                updateScoreUI();
+                renderGrid();
+                clearSelection();
+            }
+
+            // ==================== 事件绑定 ====================
+            function attachCellEvents(cell) {
+                cell.addEventListener('mousedown', onCellMouseDown);
+                cell.addEventListener('touchstart', onCellTouchStart, { passive: false });
+            }
+
+            // ==================== 交换与消除逻辑 ====================
+            function checkAnyMatch() {
+                for (let r = 0; r < ROWS; r++) {
+                    for (let c = 0; c < COLS - 2; c++) {
+                        const v1 = grid[r][c], v2 = grid[r][c + 1], v3 = grid[r][c + 2];
+                        if (v1 !== null && v1 === v2 && v2 === v3) return true;
+                    }
+                }
+                for (let c = 0; c < COLS; c++) {
+                    for (let r = 0; r < ROWS - 2; r++) {
+                        const v1 = grid[r][c], v2 = grid[r + 1][c], v3 = grid[r + 2][c];
+                        if (v1 !== null && v1 === v2 && v2 === v3) return true;
+                    }
+                }
+                return false;
+            }
+
+            async function trySwapAndMatch(r1, c1, r2, c2) {
+                if (isProcessing) return;
+                isProcessing = true;
+                clearSelection();
+
+                const cell1 = getCellElement(r1, c1);
+                const cell2 = getCellElement(r2, c2);
+                if (!cell1 || !cell2) {
+                    isProcessing = false;
+                    return;
+                }
+
+                const val1 = grid[r1][c1];
+                const val2 = grid[r2][c2];
+
+                // 计算位移
+                const rect1 = cell1.getBoundingClientRect();
+                const rect2 = cell2.getBoundingClientRect();
+                const dx = rect2.left - rect1.left;
+                const dy = rect2.top - rect1.top;
+
+                // 交换动画
+                cell1.style.transition = 'transform 0.18s ease-out';
+                cell2.style.transition = 'transform 0.18s ease-out';
+                cell1.style.transform = `translate(${dx}px, ${dy}px)`;
+                cell2.style.transform = `translate(${-dx}px, ${-dy}px)`;
+
+                await new Promise(resolve => setTimeout(resolve, 190));
+
+                // 交换数据
+                grid[r1][c1] = val2;
+                grid[r2][c2] = val1;
+
+                // 重新渲染以更新数据
+                renderGrid();
+
+                // 检查是否有消除
+                if (checkAnyMatch()) {
+                    playSound(SFX_MATCH);
+                    await resolveMatchesAndDrop();
+                } else {
+                    // 无效交换：播放音效，交换回来并抖动
+                    playSound(SFX_INVALID);
+                    grid[r1][c1] = val1;
+                    grid[r2][c2] = val2;
+                    renderGrid();
+
+                    const newCell1 = getCellElement(r1, c1);
+                    const newCell2 = getCellElement(r2, c2);
+                    if (newCell1 && newCell2) {
+                        newCell1.style.transition = 'transform 0.1s';
+                        newCell2.style.transition = 'transform 0.1s';
+                        newCell1.style.transform = `translate(${dx * 0.3}px, ${dy * 0.3}px)`;
+                        newCell2.style.transform = `translate(${-dx * 0.3}px, ${-dy * 0.3}px)`;
+                        setTimeout(() => {
+                            if (newCell1) newCell1.style.transform = '';
+                            if (newCell2) newCell2.style.transform = '';
+                            isProcessing = false;
+                        }, 120);
+                    } else {
+                        isProcessing = false;
+                    }
+                }
+            }
+
+            async function resolveMatchesAndDrop() {
+                let anyMatch = false;
+                const toRemove = new Set();
+
+                for (let r = 0; r < ROWS; r++) {
+                    for (let c = 0; c < COLS - 2; c++) {
+                        const v1 = grid[r][c], v2 = grid[r][c + 1], v3 = grid[r][c + 2];
+                        if (v1 !== null && v1 === v2 && v2 === v3) {
+                            toRemove.add(`${r},${c}`);
+                            toRemove.add(`${r},${c + 1}`);
+                            toRemove.add(`${r},${c + 2}`);
+                            anyMatch = true;
+                        }
+                    }
+                }
+                for (let c = 0; c < COLS; c++) {
+                    for (let r = 0; r < ROWS - 2; r++) {
+                        const v1 = grid[r][c], v2 = grid[r + 1][c], v3 = grid[r + 2][c];
+                        if (v1 !== null && v1 === v2 && v2 === v3) {
+                            toRemove.add(`${r},${c}`);
+                            toRemove.add(`${r + 1},${c}`);
+                            toRemove.add(`${r + 2},${c}`);
+                            anyMatch = true;
+                        }
+                    }
+                }
+
+                if (!anyMatch) {
+                    isProcessing = false;
+                    return;
+                }
+
+                // 得分
+                score += toRemove.size * 10;
+                updateScoreUI();
+
+                // 播放消除动画
+                const removePromises = [];
+                toRemove.forEach(pos => {
+                    const [r, c] = pos.split(',').map(Number);
+                    const cell = getCellElement(r, c);
+                    if (cell) {
+                        cell.classList.add('removing');
+                        removePromises.push(new Promise(resolve => setTimeout(resolve, 260)));
+                    }
+                });
+                await Promise.all(removePromises);
+
+                // 清除数据
+                toRemove.forEach(pos => {
+                    const [r, c] = pos.split(',').map(Number);
+                    if (grid[r] && grid[r][c] !== undefined) {
+                        grid[r][c] = null;
+                    }
+                });
+
+                // 下落
+                for (let c = 0; c < COLS; c++) {
+                    const columnValues = [];
+                    for (let r = ROWS - 1; r >= 0; r--) {
+                        if (grid[r][c] !== null) columnValues.push(grid[r][c]);
+                    }
+                    for (let r = ROWS - 1; r >= 0; r--) {
+                        if (columnValues.length > 0) {
+                            grid[r][c] = columnValues.shift();
+                        } else {
+                            grid[r][c] = Math.floor(Math.random() * SYMBOLS.length);
+                        }
+                    }
+                }
+
+                renderGrid();
+                gridContainer.querySelectorAll('.cell').forEach(c => c.classList.add('falling'));
+                await new Promise(resolve => setTimeout(resolve, 230));
+
+                // 递归检查
+                if (checkAnyMatch()) {
+                    playSound(SFX_MATCH);
+                    await resolveMatchesAndDrop();
+                } else {
+                    isProcessing = false;
+                }
+            }
+
+            // ==================== 鼠标事件 ====================
+            function onCellMouseDown(e) {
+                if (isProcessing) return;
+                if (e.button !== 0) return;
+                e.preventDefault();
+
+                const cell = e.currentTarget;
+                const row = parseInt(cell.dataset.row);
+                const col = parseInt(cell.dataset.col);
+
+                dragStartCell = { row, col, element: cell };
+                dragStartX = e.clientX;
+                dragStartY = e.clientY;
+                isDragging = false;
+                dragCandidate = true;
+
+                window.addEventListener('mousemove', onMouseMove);
+                window.addEventListener('mouseup', onMouseUp);
+            }
+
+            function onMouseMove(e) {
+                if (!dragStartCell || !dragCandidate) return;
+                const dx = e.clientX - dragStartX;
+                const dy = e.clientY - dragStartY;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (!isDragging && dist > DRAG_THRESHOLD) {
+                    isDragging = true;
+                    const cell = dragStartCell.element;
+                    cell.classList.add('dragging');
+                    dragElement = cell;
+                }
+
+                if (isDragging && dragElement) {
+                    e.preventDefault();
+                    const deltaX = e.clientX - dragStartX;
+                    const deltaY = e.clientY - dragStartY;
+                    dragElement.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(1.08)`;
+                }
+            }
+
+            function onMouseUp(e) {
+                if (!dragStartCell) {
+                    cleanupDrag();
+                    return;
+                }
+
+                const startRow = dragStartCell.row;
+                const startCol = dragStartCell.col;
+                const startCell = dragStartCell.element;
+
+                if (isDragging && dragElement) {
+                    // 检测目标格子
+                    dragElement.style.pointerEvents = 'none';
+                    const elementsAtPoint = document.elementsFromPoint(e.clientX, e.clientY);
+                    let targetCell = null;
+                    for (const el of elementsAtPoint) {
+                        if (el.classList && el.classList.contains('cell') && el !== dragElement) {
+                            targetCell = el;
+                            break;
+                        }
+                    }
+
+                    // 清理拖动样式
+                    dragElement.classList.remove('dragging');
+                    dragElement.style.transform = '';
+                    dragElement.style.pointerEvents = '';
+                    dragElement = null;
+
+                    if (targetCell) {
+                        const endRow = parseInt(targetCell.dataset.row);
+                        const endCol = parseInt(targetCell.dataset.col);
+                        if ((startRow !== endRow || startCol !== endCol) && isAdjacent(startRow, startCol, endRow, endCol)) {
+                            trySwapAndMatch(startRow, startCol, endRow, endCol);
+                        }
+                    }
+                } else {
+                    // 点击逻辑
+                    if (!selectedCell) {
+                        setSelected(startRow, startCol, startCell);
+                    } else {
+                        const sRow = selectedCell.row;
+                        const sCol = selectedCell.col;
+                        if (sRow === startRow && sCol === startCol) {
+                            clearSelection();
+                        } else if (isAdjacent(sRow, sCol, startRow, startCol)) {
+                            trySwapAndMatch(sRow, sCol, startRow, startCol);
+                        } else {
+                            setSelected(startRow, startCol, startCell);
+                        }
+                    }
+                }
+
+                cleanupDrag();
+            }
+
+            // ==================== 触摸事件 ====================
+            function onCellTouchStart(e) {
+                if (isProcessing) return;
+                e.preventDefault();
+                const touch = e.touches[0];
+                const cell = e.currentTarget;
+                const row = parseInt(cell.dataset.row);
+                const col = parseInt(cell.dataset.col);
+
+                dragStartCell = { row, col, element: cell };
+                dragStartX = touch.clientX;
+                dragStartY = touch.clientY;
+                isDragging = false;
+                dragCandidate = true;
+
+                window.addEventListener('touchmove', onTouchMove, { passive: false });
+                window.addEventListener('touchend', onTouchEnd);
+                window.addEventListener('touchcancel', onTouchEnd);
+            }
+
+            function onTouchMove(e) {
+                if (!dragStartCell || !dragCandidate) return;
+                const touch = e.touches[0];
+                const dx = touch.clientX - dragStartX;
+                const dy = touch.clientY - dragStartY;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (!isDragging && dist > DRAG_THRESHOLD) {
+                    isDragging = true;
+                    const cell = dragStartCell.element;
+                    cell.classList.add('dragging');
+                    dragElement = cell;
+                }
+
+                if (isDragging && dragElement) {
+                    e.preventDefault();
+                    const deltaX = touch.clientX - dragStartX;
+                    const deltaY = touch.clientY - dragStartY;
+                    dragElement.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(1.08)`;
+                }
+            }
+
+            function onTouchEnd(e) {
+                if (!dragStartCell) {
+                    cleanupDrag();
+                    return;
+                }
+
+                const startRow = dragStartCell.row;
+                const startCol = dragStartCell.col;
+                const startCell = dragStartCell.element;
+
+                if (isDragging && dragElement) {
+                    let touch = e.changedTouches[0];
+                    if (!touch && e.touches && e.touches.length) touch = e.touches[0];
+                    if (touch) {
+                        dragElement.style.pointerEvents = 'none';
+                        const elementsAtPoint = document.elementsFromPoint(touch.clientX, touch.clientY);
+                        let targetCell = null;
+                        for (const el of elementsAtPoint) {
+                            if (el.classList && el.classList.contains('cell') && el !== dragElement) {
+                                targetCell = el;
+                                break;
+                            }
+                        }
+
+                        dragElement.classList.remove('dragging');
+                        dragElement.style.transform = '';
+                        dragElement.style.pointerEvents = '';
+                        dragElement = null;
+
+                        if (targetCell) {
+                            const endRow = parseInt(targetCell.dataset.row);
+                            const endCol = parseInt(targetCell.dataset.col);
+                            if ((startRow !== endRow || startCol !== endCol) && isAdjacent(startRow, startCol, endRow, endCol)) {
+                                trySwapAndMatch(startRow, startCol, endRow, endCol);
+                            }
+                        }
+                    } else {
+                        if (dragElement) {
+                            dragElement.classList.remove('dragging');
+                            dragElement.style.transform = '';
+                            dragElement = null;
+                        }
+                    }
+                } else {
+                    // 点击逻辑
+                    if (!selectedCell) {
+                        setSelected(startRow, startCol, startCell);
+                    } else {
+                        const sRow = selectedCell.row;
+                        const sCol = selectedCell.col;
+                        if (sRow === startRow && sCol === startCol) {
+                            clearSelection();
+                        } else if (isAdjacent(sRow, sCol, startRow, startCol)) {
+                            trySwapAndMatch(sRow, sCol, startRow, startCol);
+                        } else {
+                            setSelected(startRow, startCol, startCell);
+                        }
+                    }
+                }
+
+                cleanupDrag();
+            }
+
+            function cleanupDrag() {
+                if (dragElement) {
+                    dragElement.classList.remove('dragging');
+                    dragElement.style.transform = '';
+                    dragElement.style.pointerEvents = '';
+                    dragElement = null;
+                }
+                document.querySelectorAll('.cell.dragging').forEach(c => {
+                    c.classList.remove('dragging');
+                    c.style.transform = '';
+                    c.style.pointerEvents = '';
+                });
+                dragStartCell = null;
+                isDragging = false;
+                dragCandidate = false;
+                window.removeEventListener('mousemove', onMouseMove);
+                window.removeEventListener('mouseup', onMouseUp);
+                window.removeEventListener('touchmove', onTouchMove);
+                window.removeEventListener('touchend', onTouchEnd);
+                window.removeEventListener('touchcancel', onTouchEnd);
+                if (!selectedCell) {
+                    document.querySelectorAll('.cell.selected').forEach(c => c.classList.remove('selected'));
+                }
+            }
+
+            // ==================== 重置 ====================
+            function resetGame() {
+                if (isProcessing) return;
+                isProcessing = true;
+                initGrid();
+                clearSelection();
+                isProcessing = false;
+            }
+
+            // ==================== 框体拖动 ====================
+            function makeBoardDraggable() {
+                let dragging = false;
+                let startX, startY, startLeft, startTop;
+
+                function onMouseDown(e) {
+                    e.preventDefault();
+                    if (e.button !== 0) return;
+                    dragging = true;
+                    const rect = boardWrapper.getBoundingClientRect();
+                    if (getComputedStyle(boardWrapper).position !== 'fixed') {
+                        boardWrapper.style.position = 'fixed';
+                        boardWrapper.style.left = rect.left + 'px';
+                        boardWrapper.style.top = rect.top + 'px';
+                        boardWrapper.style.margin = '0';
+                        boardWrapper.style.maxWidth = 'none';
+                        boardWrapper.style.maxHeight = 'none';
+                    }
+                    const style = window.getComputedStyle(boardWrapper);
+                    startLeft = parseFloat(style.left) || 0;
+                    startTop = parseFloat(style.top) || 0;
+                    startX = e.clientX;
+                    startY = e.clientY;
+                    document.body.style.userSelect = 'none';
+                    window.addEventListener('mousemove', onMouseMove);
+                    window.addEventListener('mouseup', onMouseUp);
+                }
+
+                function onMouseMove(e) {
+                    if (!dragging) return;
+                    const dx = e.clientX - startX;
+                    const dy = e.clientY - startY;
+                    boardWrapper.style.left = (startLeft + dx) + 'px';
+                    boardWrapper.style.top = (startTop + dy) + 'px';
+                }
+
+                function onMouseUp() {
+                    dragging = false;
+                    document.body.style.userSelect = '';
+                    window.removeEventListener('mousemove', onMouseMove);
+                    window.removeEventListener('mouseup', onMouseUp);
+                }
+
+                dragHandle.addEventListener('mousedown', onMouseDown);
+
+                // 触摸
+                dragHandle.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    const touch = e.touches[0];
+                    const rect = boardWrapper.getBoundingClientRect();
+                    if (getComputedStyle(boardWrapper).position !== 'fixed') {
+                        boardWrapper.style.position = 'fixed';
+                        boardWrapper.style.left = rect.left + 'px';
+                        boardWrapper.style.top = rect.top + 'px';
+                        boardWrapper.style.margin = '0';
+                        boardWrapper.style.maxWidth = 'none';
+                        boardWrapper.style.maxHeight = 'none';
+                    }
+                    const style = window.getComputedStyle(boardWrapper);
+                    startLeft = parseFloat(style.left) || 0;
+                    startTop = parseFloat(style.top) || 0;
+                    startX = touch.clientX;
+                    startY = touch.clientY;
+                    dragging = true;
+
+                    function onTouchMove(e) {
+                        if (!dragging) return;
+                        e.preventDefault();
+                        const touch = e.touches[0];
+                        const dx = touch.clientX - startX;
+                        const dy = touch.clientY - startY;
+                        boardWrapper.style.left = (startLeft + dx) + 'px';
+                        boardWrapper.style.top = (startTop + dy) + 'px';
+                    }
+
+                    function onTouchEnd() {
+                        dragging = false;
+                        window.removeEventListener('touchmove', onTouchMove);
+                        window.removeEventListener('touchend', onTouchEnd);
+                    }
+
+                    window.addEventListener('touchmove', onTouchMove, { passive: false });
+                    window.addEventListener('touchend', onTouchEnd);
+                }, { passive: false });
+            }
+
+            // ==================== 启动 ====================
+            window.addEventListener('load', () => {
+                initGrid();
+                makeBoardDraggable();
+                resetBtn.addEventListener('click', resetGame);
+                document.addEventListener('dragstart', e => e.preventDefault());
+            });
+
+        })();
+    </script>
+</body>
+</html>
